@@ -39,17 +39,14 @@ export function GameViewer({ game }: Props) {
   const [boardFlipped, setBoardFlipped] = useState(false)
   const [isAnalysisEnabled, setIsAnalysisEnabled] = useState(false)
 
-  // Determine whose turn it is in the current position
   const movesPlayedCount = moveIndex + 1
   const isWhiteTurn = movesPlayedCount % 2 === 0
 
-  // Current move analysis from review
   const currentMoveAnalysis = useMemo(() => {
     if (!review?.isComplete || moveIndex < 0) return null
     return review.moves[moveIndex] ?? null
   }, [review, moveIndex])
 
-  // Best-move arrows
   const customArrows = useMemo((): Arrow[] | undefined => {
     if (!currentMoveAnalysis) return undefined
     if (currentMoveAnalysis.playedMove === currentMoveAnalysis.bestMove) return undefined
@@ -57,14 +54,12 @@ export function GameViewer({ game }: Props) {
     return [[from as Square, to as Square, 'rgb(0,180,0)']]
   }, [currentMoveAnalysis])
 
-  // Trigger analysis whenever FEN changes (if analysis is on)
   useEffect(() => {
     if (isAnalysisEnabled) {
       analyze(currentFen, 20)
     }
   }, [currentFen, isAnalysisEnabled, analyze])
 
-  // Cleanup analysis when component unmounts
   useEffect(() => {
     return () => {
       stopAnalysis()
@@ -79,13 +74,23 @@ export function GameViewer({ game }: Props) {
 
   return (
     <div className="min-h-screen bg-zinc-950">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main board section */}
-          <div className="lg:col-span-2 space-y-4">
+      <div className="max-w-[1400px] mx-auto px-4 py-6">
+        {/* Analysis progress bar - full width above everything */}
+        {isReviewing && review && (
+          <div className="mb-4">
+            <AnalysisProgress
+              currentMove={review.currentMoveBeingAnalyzed}
+              totalMoves={review.totalMoves}
+              onCancel={cancelReview}
+            />
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_300px] gap-4">
+          {/* Left sidebar - Game info & review summary */}
+          <div className="space-y-4">
             <GameInfo game={game} />
 
-            {/* Review summary (accuracy) */}
             {review?.isComplete && (
               <ReviewSummary
                 review={review}
@@ -94,15 +99,25 @@ export function GameViewer({ game }: Props) {
               />
             )}
 
-            {/* Analysis progress bar */}
-            {isReviewing && review && (
-              <AnalysisProgress
-                currentMove={review.currentMoveBeingAnalyzed}
-                totalMoves={review.totalMoves}
-                onCancel={cancelReview}
-              />
-            )}
+            <AnalysisPanel
+              analysis={analysis}
+              isEnabled={isAnalysisEnabled}
+              currentFen={currentFen}
+              moveAnalysis={currentMoveAnalysis}
+            />
 
+            <a
+              href={getChesscomAnalysisUrl(game.url)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-center py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white text-sm rounded-lg transition-colors border border-zinc-700"
+            >
+              Open on Chess.com
+            </a>
+          </div>
+
+          {/* Center - Board + eval graph + controls */}
+          <div className="space-y-3">
             {/* Eval graph */}
             {review?.isComplete && (
               <EvalGraph
@@ -112,10 +127,10 @@ export function GameViewer({ game }: Props) {
               />
             )}
 
-            <div className="flex gap-6">
+            <div className="flex gap-3 justify-center">
               {/* Eval bar */}
               {(isAnalysisEnabled || review?.isComplete) && (
-                <div className="w-8">
+                <div className="w-7 flex-shrink-0">
                   <EvalBar
                     evaluation={
                       currentMoveAnalysis
@@ -132,7 +147,7 @@ export function GameViewer({ game }: Props) {
                 </div>
               )}
 
-              <div className="flex-1">
+              <div className="flex-1 max-w-[560px]">
                 <ChessBoard
                   position={currentFen}
                   boardOrientation={boardFlipped ? 'black' : 'white'}
@@ -155,30 +170,14 @@ export function GameViewer({ game }: Props) {
             />
           </div>
 
-          {/* Right sidebar */}
-          <div className="space-y-6">
+          {/* Right sidebar - Move list */}
+          <div>
             <MoveList
               moves={moves}
               currentIndex={moveIndex}
               onMoveClick={goToMove}
               review={review}
             />
-
-            <AnalysisPanel
-              analysis={analysis}
-              isEnabled={isAnalysisEnabled}
-              currentFen={currentFen}
-              moveAnalysis={currentMoveAnalysis}
-            />
-
-            <a
-              href={getChesscomAnalysisUrl(game.url)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-center py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors border border-zinc-700"
-            >
-              Open on Chess.com
-            </a>
           </div>
         </div>
       </div>

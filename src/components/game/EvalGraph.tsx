@@ -11,14 +11,13 @@ interface Props {
 export default function EvalGraph({ moves, currentMoveIndex, onMoveClick }: Props) {
   if (moves.length === 0) return null
 
-  const width = 600
-  const height = 100
-  const padding = { top: 4, bottom: 4, left: 0, right: 0 }
+  const width = 800
+  const height = 80
+  const padding = { top: 2, bottom: 2, left: 2, right: 2 }
   const graphWidth = width - padding.left - padding.right
   const graphHeight = height - padding.top - padding.bottom
   const centerY = padding.top + graphHeight / 2
 
-  // Max eval for scaling (in centipawns)
   const maxEval = 500
 
   const getX = (i: number) =>
@@ -27,63 +26,66 @@ export default function EvalGraph({ moves, currentMoveIndex, onMoveClick }: Prop
   const getY = (evalCP: number) => {
     const clamped = clampEval(evalCP)
     const normalized = Math.max(-maxEval, Math.min(maxEval, clamped))
-    // Positive eval = above center (lower Y), negative = below
     return centerY - (normalized / maxEval) * (graphHeight / 2)
   }
 
-  // Build the white area path (above center when white is winning)
-  const buildAreaPath = () => {
-    if (moves.length === 0) return ''
-
-    let whitePath = `M ${getX(0)} ${centerY}`
-    let blackPath = `M ${getX(0)} ${centerY}`
-
+  // Build a single continuous line path + fill areas
+  const buildPaths = () => {
+    const points: { x: number; y: number; evalCP: number }[] = []
     for (let i = 0; i < moves.length; i++) {
-      const x = getX(i)
-      const evalCP = moves[i].evalAfter
-      const y = getY(evalCP)
+      points.push({ x: getX(i), y: getY(moves[i].evalAfter), evalCP: moves[i].evalAfter })
+    }
 
-      if (evalCP >= 0) {
-        whitePath += ` L ${x} ${y}`
-        blackPath += ` L ${x} ${centerY}`
+    // Line path
+    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+
+    // White fill: area between line and center where eval > 0
+    let whiteFill = `M ${points[0].x} ${centerY}`
+    let blackFill = `M ${points[0].x} ${centerY}`
+
+    for (const p of points) {
+      if (p.evalCP >= 0) {
+        whiteFill += ` L ${p.x} ${p.y}`
+        blackFill += ` L ${p.x} ${centerY}`
       } else {
-        whitePath += ` L ${x} ${centerY}`
-        blackPath += ` L ${x} ${y}`
+        whiteFill += ` L ${p.x} ${centerY}`
+        blackFill += ` L ${p.x} ${p.y}`
       }
     }
 
-    whitePath += ` L ${getX(moves.length - 1)} ${centerY} Z`
-    blackPath += ` L ${getX(moves.length - 1)} ${centerY} Z`
+    const lastX = points[points.length - 1].x
+    whiteFill += ` L ${lastX} ${centerY} Z`
+    blackFill += ` L ${lastX} ${centerY} Z`
 
-    return { whitePath, blackPath }
+    return { linePath, whiteFill, blackFill }
   }
 
-  const paths = buildAreaPath()
-  if (!paths) return null
+  const { linePath, whiteFill, blackFill } = buildPaths()
 
-  // Find notable moves (inaccuracies, mistakes, blunders)
   const notableMoves = moves.filter((m) =>
     ['inaccuracy', 'mistake', 'blunder', 'brilliant', 'great'].includes(m.classification)
   )
 
   return (
-    <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-2">
+    <div className="bg-zinc-800 rounded-lg border border-zinc-700 overflow-hidden">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full cursor-pointer"
-        preserveAspectRatio="none"
+        className="w-full block"
+        style={{ height: '64px' }}
+        preserveAspectRatio="xMidYMid meet"
         onClick={(e) => {
           const rect = e.currentTarget.getBoundingClientRect()
           const x = ((e.clientX - rect.left) / rect.width) * width
           const moveIdx = Math.round(
             ((x - padding.left) / graphWidth) * (moves.length - 1)
           )
-          const clampedIdx = Math.max(0, Math.min(moves.length - 1, moveIdx))
-          onMoveClick(clampedIdx)
+          onMoveClick(Math.max(0, Math.min(moves.length - 1, moveIdx)))
         }}
+        role="button"
+        tabIndex={0}
       >
         {/* Background */}
-        <rect x={0} y={0} width={width} height={height} fill="#27272a" rx={4} />
+        <rect x={0} y={0} width={width} height={height} fill="#18181b" />
 
         {/* Center line */}
         <line
@@ -91,15 +93,18 @@ export default function EvalGraph({ moves, currentMoveIndex, onMoveClick }: Prop
           y1={centerY}
           x2={width - padding.right}
           y2={centerY}
-          stroke="#52525b"
+          stroke="#3f3f46"
           strokeWidth={0.5}
         />
 
         {/* White area */}
-        <path d={paths.whitePath} fill="rgba(255,255,255,0.6)" />
+        <path d={whiteFill} fill="rgba(255,255,255,0.5)" />
 
         {/* Black area */}
-        <path d={paths.blackPath} fill="rgba(0,0,0,0.5)" />
+        <path d={blackFill} fill="rgba(255,255,255,0.08)" />
+
+        {/* Eval line */}
+        <path d={linePath} fill="none" stroke="#71717a" strokeWidth={1} />
 
         {/* Notable move dots */}
         {notableMoves.map((m) => (
@@ -107,8 +112,10 @@ export default function EvalGraph({ moves, currentMoveIndex, onMoveClick }: Prop
             key={m.moveIndex}
             cx={getX(m.moveIndex)}
             cy={getY(m.evalAfter)}
-            r={3}
+            r={2.5}
             fill={CLASSIFICATION_COLORS[m.classification]}
+            stroke="#18181b"
+            strokeWidth={0.5}
           />
         ))}
 
@@ -121,6 +128,7 @@ export default function EvalGraph({ moves, currentMoveIndex, onMoveClick }: Prop
             y2={height - padding.bottom}
             stroke="#22c55e"
             strokeWidth={1.5}
+            opacity={0.8}
           />
         )}
       </svg>
