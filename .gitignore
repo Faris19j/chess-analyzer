@@ -21,7 +21,4 @@ npm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# large binary
-public/stockfish.wasm
 .vercel
