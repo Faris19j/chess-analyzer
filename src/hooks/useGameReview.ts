@@ -93,7 +93,7 @@ export function useGameReview() {
       })
 
       // Create dedicated worker for batch analysis
-      const worker = new Worker('/stockfish-bridge.worker.js')
+      const worker = new Worker('/stockfish.js')
       workerRef.current = worker
 
       // Wait for UCI ready

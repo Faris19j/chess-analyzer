@@ -23,7 +23,7 @@ export function useStockfish() {
     if (typeof window === 'undefined') return
 
     try {
-      const worker = new Worker('/stockfish-bridge.worker.js')
+      const worker = new Worker('/stockfish.js')
       workerRef.current = worker
 
       worker.onmessage = (event: MessageEvent<string>) => {

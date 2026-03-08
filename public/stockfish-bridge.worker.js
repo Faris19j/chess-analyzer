@@ -1,19 +1,43 @@
-// Web Worker for Stockfish WASM
-// This script runs inside a Web Worker context.
-// It imports the stockfish engine and forwards messages.
+// Web Worker bridge for Stockfish WASM (lite-single build)
+// The single-threaded Stockfish build uses listener/processCommand API.
+// We need to: 1) create the engine with a listener callback
+// 2) queue commands until processCommand is available
+// 3) forward commands via processCommand
 
 self.importScripts('/stockfish.js')
 
-// stockfish.js creates a global `Stockfish` factory function
-const engine = Stockfish()
+var queue = []
 
-engine.onmessage = function (event) {
-  // Forward engine output to the main thread
-  const line = typeof event === 'string' ? event : event.data
-  self.postMessage(line)
-}
+// Stockfish is a double-factory: Stockfish() returns a factory,
+// factory(config) returns the engine module
+var factory = Stockfish()
+var engine = factory({
+  locateFile: function (file) {
+    return '/' + file
+  },
+  listener: function (line) {
+    // Forward engine output to main thread
+    self.postMessage(line)
+  }
+})
 
+// Receive commands from main thread
 self.onmessage = function (event) {
-  // Forward main thread commands to the engine
-  engine.postMessage(event.data)
+  var cmd = event.data
+  if (engine && engine.processCommand) {
+    engine.processCommand(cmd)
+  } else {
+    queue.push(cmd)
+  }
 }
+
+// Poll until processCommand is available, then flush queued commands
+var readyInterval = setInterval(function () {
+  if (engine && engine.processCommand) {
+    clearInterval(readyInterval)
+    for (var i = 0; i < queue.length; i++) {
+      engine.processCommand(queue[i])
+    }
+    queue = []
+  }
+}, 20)
