@@ -16,6 +16,7 @@ import { AnalysisPanel } from './AnalysisPanel'
 import EvalGraph from './EvalGraph'
 import ReviewSummary from './ReviewSummary'
 import AnalysisProgress from './AnalysisProgress'
+import { useRouter } from 'next/navigation'
 
 interface Props {
   game: ChessComGame
@@ -36,6 +37,7 @@ export function GameViewer({ game }: Props) {
 
   const { analysis, analyze, stopAnalysis } = useStockfish()
   const { review, isReviewing, startReview, cancelReview } = useGameReview()
+  const router = useRouter()
   const [boardFlipped, setBoardFlipped] = useState(false)
   const [isAnalysisEnabled, setIsAnalysisEnabled] = useState(false)
 
@@ -75,6 +77,15 @@ export function GameViewer({ game }: Props) {
   return (
     <div className="min-h-screen bg-zinc-950">
       <div className="max-w-[1400px] mx-auto px-4 py-6">
+        {/* Back to games button */}
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-4 text-sm"
+        >
+          <span>←</span>
+          <span>Back to games</span>
+        </button>
+
         {/* Analysis progress bar - full width above everything */}
         {isReviewing && review && (
           <div className="mb-4">
