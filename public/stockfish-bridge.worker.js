@@ -5,7 +5,16 @@
 self.importScripts('/stockfish.js')
 
 // stockfish.js creates a global `Stockfish` factory function
-const engine = Stockfish()
+// Pass locateFile to load the WASM from CDN if not available locally
+const engine = Stockfish({
+  locateFile: function (file) {
+    if (file.endsWith('.wasm')) {
+      // Try local first, fall back to CDN
+      return 'https://cdn.jsdelivr.net/npm/stockfish@18.0.5/stockfish.wasm'
+    }
+    return '/' + file
+  }
+})
 
 engine.onmessage = function (event) {
   // Forward engine output to the main thread
